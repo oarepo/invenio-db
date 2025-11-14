@@ -163,12 +163,13 @@ class UnitOfWork:
     def __init__(self, session=None):
         """Initialize unit of work context."""
         self._session = session or db.session
+        self._savepoint = None
         self._operations = []
         self._dirty = False
 
     def __enter__(self):
         """Entering the context."""
-        self.session.begin_nested()
+        self._savepoint = self.session.begin_nested()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -182,6 +183,11 @@ class UnitOfWork:
         """The SQLAlchemy database session associated with this UoW."""
         return self._session
 
+    @property
+    def savepoint(self):
+        """The savepoint associated with this UoW."""
+        return self._savepoint
+
     def _mark_dirty(self):
         """Mark the unit of work as dirty."""
         if self._dirty:
@@ -190,7 +196,8 @@ class UnitOfWork:
 
     def commit(self):
         """Commit the unit of work."""
-        self.session.commit()
+        self._savepoint.commit()
+        self._savepoint = None
         # Run commit operations
         for op in self._operations:
             op.on_commit(self)
@@ -201,15 +208,14 @@ class UnitOfWork:
 
     def rollback(self, exception=None):
         """Rollback the database session."""
-        self.session.rollback()
+        self._savepoint.rollback()
+        self._savepoint = None
 
         # Run exception operations
         if exception:
-            for op in self._operations:
-                op.on_exception(self, exception)
-
-            # Commit exception operations
-            self.session.commit()
+            with self._session.begin_nested():
+                for op in self._operations:
+                    op.on_exception(self, exception)
 
         # Run rollback operations
         for op in self._operations:
