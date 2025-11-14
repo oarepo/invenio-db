@@ -164,11 +164,13 @@ class UnitOfWork:
         """Initialize unit of work context."""
         self._session = session or db.session
         self._savepoint = None
+        self._inside_savepoint = False
         self._operations = []
         self._dirty = False
 
     def __enter__(self):
         """Entering the context."""
+        self._inside_savepoint = self.session.connection().in_nested_transaction()
         self._savepoint = self.session.begin_nested()
         return self
 
@@ -196,7 +198,10 @@ class UnitOfWork:
 
     def commit(self):
         """Commit the unit of work."""
-        self._savepoint.commit()
+        if self._inside_savepoint:
+            self._savepoint.commit()
+        else:
+            self._session.commit()
         self._savepoint = None
         # Run commit operations
         for op in self._operations:
@@ -208,7 +213,10 @@ class UnitOfWork:
 
     def rollback(self, exception=None):
         """Rollback the database session."""
-        self._savepoint.rollback()
+        if self._inside_savepoint:
+            self._savepoint.rollback()
+        else:
+            self._session.rollback()
         self._savepoint = None
 
         # Run exception operations
