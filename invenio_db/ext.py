@@ -180,7 +180,11 @@ class InvenioDB(object):
         database.init_app(app)
 
         # Initialize versioning support.
-        self.init_versioning(app, database, kwargs.get("versioning_manager"))
+        self.init_versioning(
+            app,
+            database,
+            kwargs.get("versioning_manager") or app.config.get("DB_VERSIONING_MANAGER"),
+        )
 
         # Initialize model bases
         if entry_point_group:
