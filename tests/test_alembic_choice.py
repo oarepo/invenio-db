@@ -77,9 +77,11 @@ def test_alembic(app, db):
             # check that imports have been added
             assert "import sqlalchemy_utils" in content
             assert "import invenio_db.shared" in content
-            assert "from demo.with_choice import Severity" in content
+            # the enum class should not be imported as it would break if the class is removed/renamed later on
+            assert "from demo.with_choice import Severity" not in content
+            # instead, the possible values are generated from the enum class at the time of building the migration script
             assert (
-                "sa.Column('enum_choice', sqlalchemy_utils.types.choice.ChoiceType(Severity, impl=sa.Unicode(length=255))"
+                "sa.Column('enum_choice', sqlalchemy_utils.types.choice.ChoiceType([('high', 'HIGH'), ('low', 'LOW'), ('medium', 'MEDIUM')], impl=sa.Unicode(length=255)), nullable=True),"
                 in content
             )
             assert "sa.Column('tuple_choice', sa.Unicode(length=255)" in content

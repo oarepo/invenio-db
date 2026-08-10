@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2017-2018 CERN.
 # SPDX-FileCopyrightText: 2022-2026 Graz University of Technology.
 # SPDX-FileCopyrightText: 2026 University of Münster.
-# SPDX-FileCopyrightText: 2026 CESNET z.s.p..
+# SPDX-FileCopyrightText: 2026 CESNET z.s.p.o.
 # SPDX-License-Identifier: MIT
 # from .signals import secret_key_changed
 
@@ -194,14 +194,18 @@ def alembic_render_item(type_, obj, autogen_context):
 
                 choices = obj.choices
                 if isinstance(choices, type) and issubclass(choices, Enum):
-                    # Enum class: emit ChoiceType(Severity, impl=sa.String(1))
-                    # and add the matching from-import.
-                    autogen_context.imports.add(
-                        f"from {choices.__module__} import {choices.__name__}"
-                    )
+                    # The enum class itself is omitted, since referencing it would break if the
+                    # class is later renamed, moved, or removed.
+                    # Instead, all enum values are emitted as a list of (value, name) tuples.
+                    # Note: this is for documentation purposes only; the choices list does not
+                    # affect the generated SQL.
+                    choices_list = [
+                        (member.value, member.name)
+                        for member in sorted(choices, key=lambda m: m.value)
+                    ]
                     return (
                         f"sqlalchemy_utils.types.choice.ChoiceType("
-                        f"{choices.__name__}, impl={impl_repr})"
+                        f"{choices_list!r}, impl={impl_repr})"
                     )
                 else:
                     # List-of-tuples: values may not be serialisable; render
